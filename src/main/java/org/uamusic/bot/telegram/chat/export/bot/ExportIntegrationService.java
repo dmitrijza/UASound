@@ -1,6 +1,7 @@
-package org.uamusic.export.bot;
+package org.uamusic.bot.telegram.chat.export.bot;
 
-import org.uamusic.export.bot.bot.SharedAudio;
+import org.uamusic.data.service.PG.PGDataService;
+import org.uamusic.bot.telegram.chat.export.bot.entity.SharedAudio;
 import org.uamusic.data.entity.DerivedData;
 
 import java.util.function.Consumer;
@@ -14,5 +15,9 @@ public interface ExportIntegrationService {
     void init();
 
     void integrate(final DerivedData data, final Consumer<SharedAudio> consumer);
+
+    IntegrationUpdatesHandler getUpdatesHandler();
+
+    PGDataService getDataService();
 
 }

@@ -1,4 +1,4 @@
-package org.uamusic.export.selfbot;
+package org.uamusic.bot.telegram.chat.export.selfbot;
 
 import it.tdlight.client.Result;
 import it.tdlight.client.SimpleTelegramClient;
@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.uamusic.bot.telegram.TelegramBot;
 import org.uamusic.data.entity.DerivedData;
-import org.uamusic.export.selfbot.strategy.ExportStrategy;
+import org.uamusic.bot.telegram.chat.export.selfbot.strategy.ExportStrategy;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -70,7 +70,6 @@ public class SelfBotExportService implements ExportService {
 
     static final ScheduledExecutorService _EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
-
     private final TelegramBot botInstance;
 
     private SimpleTelegramClient telegramClient;
@@ -125,11 +124,16 @@ public class SelfBotExportService implements ExportService {
         }
 
         for (TdApi.Message message : messages.messages) {
+            if (message == null)
+                continue;
+
             final DerivedData derivedData = strategy.wrap(message, DefaultExceptionHandler.INSTANCE);
 
-            bot.getDataService().saveData(derivedData);
+            if (derivedData != null) {
+                bot.getDataService().saveData(derivedData);
 
-            _LOGGER.info("Message ({}:{}) accomplished.", groupId, message.id);
+                _LOGGER.info("Message ({}:{}) accomplished.", groupId, message.id);
+            }
         }
 
         try {

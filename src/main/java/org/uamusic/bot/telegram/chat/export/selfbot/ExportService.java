@@ -1,4 +1,4 @@
-package org.uamusic.export.selfbot;
+package org.uamusic.bot.telegram.chat.export.selfbot;
 
 import java.util.concurrent.TimeUnit;
 

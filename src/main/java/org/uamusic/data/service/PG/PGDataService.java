@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.uamusic.data.JDBCSerializationSpecies;
 import org.uamusic.data.entity.DerivedData;
 import org.uamusic.data.entity.DerivedMeta;
+import org.uamusic.data.entity.GroupCard;
+import org.uamusic.bot.telegram.chat.export.bot.entity.SharedAudio;
 
 import java.math.BigDecimal;
 import java.sql.*;
@@ -24,7 +26,10 @@ public final class PGDataService {
     private HikariDataSource dataSource;
 
     private PreparedStatement
-            dataUpsert, dataUpdate, dataContains, metaUpdate, metaUpsert, metaSelect, dataSelect;
+            dataUpsert, dataUpdate, dataContains,
+            sharedInsert, sharedSelect, sharedExists,
+            metaUpdate, metaUpsert, metaSelect, dataSelect,
+            groupCardSelect;
 
     private Statement search;
 
@@ -40,15 +45,24 @@ public final class PGDataService {
 
             prepareStatement.executeUpdate(PGQuery.POSTGRE_DATA_TABLE);
             prepareStatement.executeUpdate(PGQuery.POSTGRE_META_TABLE);
+            prepareStatement.executeUpdate(PGQuery.POSTGRE_SHARED_TABLE);
+            prepareStatement.executeUpdate(PGQuery.POSTGRE_CARD_TABLE);
 
             this.search = connection.createStatement();
 
+            this.groupCardSelect = connection.prepareStatement(PGQuery.POSTGRE_CARD_SELECT);
+
+            this.dataUpsert = connection.prepareStatement(PGQuery.POSTGRE_MESSAGE_UPSERT, Statement.RETURN_GENERATED_KEYS);
             this.dataContains = connection.prepareStatement(PGQuery.POSTGRE_DATA_CONTAINS);
             this.dataSelect = connection.prepareStatement(PGQuery.POSTGRE_DATA_SELECT);
             this.dataUpdate = connection.prepareStatement(PGQuery.POSTGRE_DATA_UPDATE);
+
+            this.sharedSelect = connection.prepareStatement(PGQuery.POSTGRE_SHARED_SELECT);
+            this.sharedExists = connection.prepareStatement(PGQuery.POSTGRE_SHARED_EXISTS);
+            this.sharedInsert = connection.prepareStatement(PGQuery.POSTGRE_SHARED_INSERT);
+
             this.metaUpdate = connection.prepareStatement(PGQuery.POSTGRE_META_UPDATE);
             this.metaUpsert = connection.prepareStatement(PGQuery.POSTGRE_META_UPSERT);
-            this.dataUpsert = connection.prepareStatement(PGQuery.POSTGRE_MESSAGE_UPSERT, Statement.RETURN_GENERATED_KEYS);
             this.metaSelect = connection.prepareStatement(PGQuery.POSTGRE_META_SELECT, Statement.RETURN_GENERATED_KEYS);
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -79,6 +93,74 @@ public final class PGDataService {
                 saveMeta(derivedData.getDerivedMeta());
         } catch (SQLException e) {
             LOGGER.error("Can't upsert message", e);
+        }
+    }
+
+    public void saveAudio(final SharedAudio audio){
+        try {
+            this.sharedInsert.setBigDecimal(1, BigDecimal.valueOf(audio.getInternalId()));
+            this.sharedInsert.setBigDecimal(2, BigDecimal.valueOf(audio.getPostId()));
+            this.sharedInsert.setBigDecimal(3, BigDecimal.valueOf(audio.getBucketId()));
+            this.sharedInsert.setBigDecimal(4, BigDecimal.valueOf(audio.getMessageId()));
+            this.sharedInsert.setString(5, audio.getFileUniqueId());
+            this.sharedInsert.setString(6, audio.getRemoteFileId());
+            this.sharedInsert.setString(7, audio.getFileId());
+            this.sharedInsert.setString(8, audio.getSchema());
+
+            this.sharedInsert.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public boolean containsAudio(final BigDecimal internalId){
+        try {
+            this.sharedExists.setBigDecimal(1, internalId);
+
+            final ResultSet set = this.sharedExists.executeQuery();
+
+            if (set.next())
+                return set.getBoolean(1);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return false;
+    }
+
+    public GroupCard getGroupCard(final long groupId){
+        try {
+            this.groupCardSelect.setBigDecimal(1, BigDecimal.valueOf(groupId));
+
+            final ResultSet set = this.groupCardSelect.executeQuery();
+
+            GroupCard card = null;
+
+            while (set.next()) {
+                card = JDBCSerializationSpecies.deserializeCard(this, set).orElse(null);
+            }
+
+            return card;
+        } catch (Exception e){
+            throw new RuntimeException(e);
+        }
+    }
+
+    public SharedAudio getAudio(final BigDecimal internalId){
+        try {
+            this.sharedSelect.setBigDecimal(1, internalId);
+
+            final ResultSet set = this.sharedSelect.executeQuery();
+
+            SharedAudio audio = null;
+
+            while (set.next()){
+                audio = JDBCSerializationSpecies.deserializeAudio(this, set).orElse(null);
+            }
+
+            return audio;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -115,16 +197,17 @@ public final class PGDataService {
 
     public void updateData(final DerivedData data){
         try {
-            this.dataUpdate.setString(1, data.getFileId());
-            this.dataUpdate.setString(2, data.getTrackName());
-            this.dataUpdate.setString(3, data.getTrackDuration());
-            this.dataUpdate.setString(4, data.getTrackPerformer());
-            this.dataUpdate.setString(5, data.getAggregator());
-            this.dataUpdate.setString(6, data.getSchema());
-            this.dataUpdate.setTimestamp(7, data.getCreationTimestamp());
-            this.dataUpdate.setTimestamp(8, data.getModificationTimestamp());
+            this.dataUpdate.setString(1, data.getRemoteFileId());
+            this.dataUpdate.setString(2, data.getFileId());
+            this.dataUpdate.setString(3, data.getTrackName());
+            this.dataUpdate.setString(4, data.getTrackDuration());
+            this.dataUpdate.setString(5, data.getTrackPerformer());
+            this.dataUpdate.setString(6, data.getAggregator());
+            this.dataUpdate.setString(7, data.getSchema());
+            this.dataUpdate.setTimestamp(8, data.getCreationTimestamp());
+            this.dataUpdate.setTimestamp(9, data.getModificationTimestamp());
 
-            this.dataUpdate.setBigDecimal(9, BigDecimal.valueOf(data.getDerivedMeta().getInternalId()));
+            this.dataUpdate.setBigDecimal(10, BigDecimal.valueOf(data.getDerivedMeta().getInternalId()));
             this.dataUpdate.executeUpdate();
 
             this.updateMeta(data.getDerivedMeta());

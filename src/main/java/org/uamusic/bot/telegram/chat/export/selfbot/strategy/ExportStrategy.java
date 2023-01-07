@@ -1,4 +1,4 @@
-package org.uamusic.export.selfbot.strategy;
+package org.uamusic.bot.telegram.chat.export.selfbot.strategy;
 
 import org.uamusic.data.entity.DerivedData;
 

@@ -1,4 +1,4 @@
-package org.uamusic.bot.commands;
+package org.uamusic.bot.telegram.chat.commands;
 
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.DefaultBotCommand;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;

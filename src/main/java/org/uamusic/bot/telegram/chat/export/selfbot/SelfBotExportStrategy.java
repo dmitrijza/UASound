@@ -1,11 +1,11 @@
-package org.uamusic.export.selfbot;
+package org.uamusic.bot.telegram.chat.export.selfbot;
 
 import it.tdlight.jni.TdApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.uamusic.data.entity.DerivedData;
 import org.uamusic.data.entity.DerivedMeta;
-import org.uamusic.export.selfbot.strategy.ExportStrategy;
+import org.uamusic.bot.telegram.chat.export.selfbot.strategy.ExportStrategy;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -55,12 +55,16 @@ public class SelfBotExportStrategy implements ExportStrategy<TdApi.Message> {
         final TdApi.Minithumbnail albumCoverMini = audio.albumCoverMinithumbnail;
         final TdApi.Thumbnail albumCoverLarge = audio.albumCoverThumbnail;
 
+        _LOGGER.info("{} : {}", messageAudio.caption, file.remote.id);
+
         return DerivedData.builder()
                 .creationTimestamp(timestamp)
                 .modificationTimestamp(timestamp)
                 .groupId(rawInput.chatId)
                 .postId(rawInput.id)
                 .fileId(String.valueOf(file.id))
+                .fileUniqueId(file.remote.uniqueId)
+                .remoteFileId(file.remote.id)
                 .trackName(audio.title)
                 .trackDuration(String.valueOf(audio.duration))
                 .trackPerformer(audio.performer)

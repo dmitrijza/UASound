@@ -1,4 +1,4 @@
-package org.uamusic.export.selfbot;
+package org.uamusic.bot.telegram.chat.export.selfbot;
 
 import it.tdlight.client.APIToken;
 import it.tdlight.client.AuthenticationData;
@@ -19,15 +19,6 @@ public final class SelfBotSpecies {
     static final Logger _LOGGER = LoggerFactory.getLogger(SelfBotSpecies.class);
 
     static SimpleTelegramClient _CLIENT = null;
-
-    public static SimpleTelegramClient authorizeSync(final Consumer<Exception> exceptionHandler){
-        try {
-            return authorize();
-        } catch (InterruptedException e) {
-            exceptionHandler.accept(e);
-            return null;
-        }
-    }
 
     public static SimpleTelegramClient authorize() throws InterruptedException {
         if (_CLIENT != null) {

@@ -87,6 +87,7 @@ public final class PGQuery {
             "values (?, ?, ?) on conflict (internal_id) do nothing;";
     static final String POSTGRE_META_UPDATE = "" +
             "UPDATE post_meta SET meta_data = ? where internal_id = ?;";
+
     static final String POSTGRE_DATA_UPDATE = "" +
             "update post_data set unique_file_id = ?, remote_file_id = ?, file_id = ?, track_name = ?, " +
             "track_duration = ?, track_performer = ?, aggregator = ?, " +

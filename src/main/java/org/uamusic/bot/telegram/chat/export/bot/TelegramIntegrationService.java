@@ -1,9 +1,9 @@
 package org.uamusic.bot.telegram.chat.export.bot;
 
 import org.uamusic.bot.telegram.TelegramBot;
+import org.uamusic.bot.telegram.chat.export.bot.entity.SharedAudio;
 import org.uamusic.data.entity.DerivedData;
 import org.uamusic.data.service.PG.PGDataService;
-import org.uamusic.bot.telegram.chat.export.bot.entity.SharedAudio;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -28,6 +28,7 @@ public class TelegramIntegrationService implements ExportIntegrationService {
         this.bot = bot;
         this.dataService = bot.getDataService();
         this.strategy = new BotIntegrationStrategy(this, bot.getTelegramClient());
+
         this.updatesHandler = new DefaultIntegrationHandler(this, this.strategy);
     }
 
@@ -51,12 +52,15 @@ public class TelegramIntegrationService implements ExportIntegrationService {
             }
 
             this.strategy.integrate(data, (sharedAudio) -> {
-                System.out.println(sharedAudio);
-
                 cache.put(data, sharedAudio);
                 consumer.accept(sharedAudio);
             });
         }
+    }
+
+    @Override
+    public void forceCache(DerivedData data, SharedAudio audio) {
+        this.cache.put(data, audio);
     }
 
     @Override

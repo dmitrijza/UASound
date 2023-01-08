@@ -34,20 +34,20 @@ public class DefaultIntegrationHandler implements IntegrationUpdatesHandler {
             final Message message = update.getChannelPost();
 
             if (!(message.hasAudio())) {
-                _LOGGER.debug("{}: Not an audio", message.getMessageId());
+                _LOGGER.debug("{}: not an audio", message.getMessageId());
                 continue;
             }
 
             if (message.getChatId() != TelegramIntegrationService.BUCKET_CHAT_ID) {
-                _LOGGER.debug("{}: Not a bucket chat.", message.getMessageId());
+                _LOGGER.debug("{}: not a bucket chat.", message.getMessageId());
                 continue;
             }
 
             final Audio audio = message.getAudio();
 
-            _LOGGER.info("{}: received shared audio", message.getMessageId());
+            _LOGGER.debug("{}: received shared audio", message.getMessageId());
 
-            final List<DerivedData> less = new ArrayList<>();
+            final List<DerivedData> processed = new ArrayList<>();
 
             for (Map.Entry<DerivedData, BiConsumer<DerivedData, SharedAudio>> entry : query.entrySet()) {
                 final DerivedData data = entry.getKey();
@@ -58,11 +58,11 @@ public class DefaultIntegrationHandler implements IntegrationUpdatesHandler {
                     integrationService.getDataService().saveAudio(completeAudio);
 
                     this.query.get(data).accept(data, completeAudio);
-                    less.add(data);
+                    processed.add(data);
                 }
             }
 
-            less.forEach(this.query::remove);
+            processed.forEach(this.query::remove);
         }
     }
 
@@ -72,9 +72,6 @@ public class DefaultIntegrationHandler implements IntegrationUpdatesHandler {
 
     @Override
     public boolean isAwaited(DerivedData data) {
-        for (DerivedData itData : query.keySet())
-            if (itData.getInternalId() == data.getInternalId())
-                return true;
-        return false;
+        return query.containsKey(data);
     }
 }

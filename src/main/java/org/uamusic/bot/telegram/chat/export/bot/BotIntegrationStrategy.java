@@ -1,13 +1,13 @@
 package org.uamusic.bot.telegram.chat.export.bot;
 
-import it.tdlight.client.SimpleTelegramClient;
 import it.tdlight.jni.TdApi;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.telegram.telegrambots.meta.api.objects.Message;
-import org.uamusic.data.entity.DerivedData;
 import org.uamusic.bot.telegram.chat.export.bot.entity.SharedAudio;
+import org.uamusic.bot.telegram.chat.export.selfbot.SelfBotAdapter;
+import org.uamusic.data.entity.DerivedData;
 
 import java.util.function.Consumer;
 
@@ -15,7 +15,7 @@ import java.util.function.Consumer;
 public class BotIntegrationStrategy {
     private final ExportIntegrationService service;
 
-    private final SimpleTelegramClient client;
+    private final SelfBotAdapter client;
 
     @Setter @Getter
     private long bucketChat;
@@ -28,12 +28,11 @@ public class BotIntegrationStrategy {
                 new long[]{ data.getPostId() },
                 null,
                 false,
-                false,
+                true,
                 false
         ), (res) ->
                 service.getUpdatesHandler().await(data, (data2, sharedAudio) ->
                 consumer.accept(sharedAudio)));
-
     }
 
     public SharedAudio transform(final DerivedData data, final Message message){

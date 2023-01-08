@@ -16,6 +16,8 @@ public interface ExportIntegrationService {
 
     void integrate(final DerivedData data, final Consumer<SharedAudio> consumer);
 
+    void forceCache(final DerivedData data, final SharedAudio audio);
+
     IntegrationUpdatesHandler getUpdatesHandler();
 
     PGDataService getDataService();

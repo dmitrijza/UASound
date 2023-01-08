@@ -30,6 +30,7 @@ public final class JDBCSerializationSpecies {
             builder.groupId(set.getBigDecimal("group_id").longValue());
             builder.groupTitle(set.getString("group_title"));
             builder.groupTag(set.getString("group_tag"));
+            builder.groupInviteId(set.getString("group_invite_id"));
             builder.administratorId(set.getBigDecimal("administrator_id").longValue());
             builder.initiator(set.getString("initiator"));
             builder.schema(set.getString("schema"));

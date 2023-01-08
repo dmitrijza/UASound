@@ -6,8 +6,8 @@ import org.telegram.telegrambots.meta.api.objects.inlinequery.InlineQuery;
 import org.telegram.telegrambots.meta.api.objects.inlinequery.result.cached.InlineQueryResultCachedAudio;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.uamusic.bot.telegram.TelegramBot;
-import org.uamusic.data.entity.DerivedData;
 import org.uamusic.bot.telegram.chat.export.bot.entity.SharedAudio;
+import org.uamusic.data.entity.DerivedData;
 import org.uamusic.data.entity.GroupCard;
 
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ public class SimpleInlineProcessor implements InlineProcessor {
         coincidences.forEach((data) -> {
             bot.getIntegrationService().integrate(data, audios::add);
 
-            if (audios.size() == coincidences.size() || audios.size() == 5){
+            if (audios.size() == coincidences.size() || audios.size() == 10){
                 try {
                     bot.execute(AnswerInlineQuery.builder()
                             .inlineQueryId(query.getId())
@@ -45,12 +45,12 @@ public class SimpleInlineProcessor implements InlineProcessor {
                                                 .caption(String.format(
                                                         INLINE_TEMPLATE,
                                                         card.getGroupPrefix(),
-                                                        card.getGroupTag(),
+                                                        card.getGroupInviteId() == null ?
+                                                                card.getGroupTag() : card.getGroupInviteId(),
                                                         card.getGroupTitle())
                                                 )
                                                 .parseMode("HTML")
                                                 .build();
-
                                     })
                                     .collect(Collectors.toList()))
                             .build());

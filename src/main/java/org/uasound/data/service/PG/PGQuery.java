@@ -1,7 +1,9 @@
-package org.uamusic.data.service.PG;
+package org.uasound.data.service.PG;
 
 public final class PGQuery {
+
     private PGQuery() { /* ... */ }
+
 
     static final String POSTGRE_SHARED_TABLE = "" +
             "create table if not exists shared_audio" +
@@ -27,7 +29,7 @@ public final class PGQuery {
             "insert into shared_audio (internal_id, post_id, bucket_id, message_id, " +
             "unique_file_id, remote_file_id, file_id," +
             "                          \"schema\")" +
-            "values (?, ?, ?, ?, ?, ?, ?, ?);";
+            "values (?, ?, ?, ?, ?, ?, ?, ?) on conflict (internal_id, post_id, bucket_id, message_id) do nothing;";
 
     static final String POSTGRE_SHARED_SELECT = "" +
             "select * from shared_audio where internal_id = ?";
@@ -46,6 +48,7 @@ public final class PGQuery {
             "            primary key," +
             "    group_title            varchar                             not null," +
             "    group_tag            varchar                             not null," +
+            "    group_invite_id            varchar                             not null," +
             "    administrator_id       bigint                              not null," +
             "    initiator              bigint                              not null," +
             "    schema                 varchar                             not null" +
@@ -95,13 +98,28 @@ public final class PGQuery {
             "where internal_id = ?;";
     static final String POSTGRE_DATA_CONTAINS = "" +
             "select exists (select * from post_data where group_id = ? and post_id = ?);";
-    static final String POSTGRE_DATA_SELECT = "" +
+    static final String POSTGRE_DATA_SELECT_EXACT = "" +
             "select * from post_data where group_id = ? and post_id = ?;";
     static final String POSTGRE_META_SELECT = "" +
             "select * from post_meta where internal_id = ?;";
 
+    static final String POSTGRE_CARD_UPDATE = "" +
+            "update group_cards set administrator_id = ? where group_id = ?;";
     static final String POSTGRE_CARD_SELECT = "" +
             "select * from group_cards where group_id = ?";
+    static final String POSTGRE_CARD_SELECT_ALL_IDS = "" +
+            "select group_id from group_cards;";
+    static final String POSTGRES_SELECT_AUDIO = "select * from shared_audio where internal_id = ?;";
+    static final String POSTGRE_CARD_SELECT_TAG = "" +
+            "select * from group_cards where group_tag = ?;";
+
+    static final String POSTGRE_SELECT_CACHEABLE_DATA = "" +
+            "select t1.internal_id from post_data t1 left join shared_audio t2 on " +
+            "t2.internal_id = t1.internal_id where t2.internal_id is null limit 5;";
+
+    static final String POSTGRE_DATA_SELECT_INTERNAL = "" +
+            "select * from post_data where internal_id = ?;";
+
     static final String POSTGRE_MESSAGE_UPSERT = "" +
             "insert into post_data (group_id, post_id, file_id, " +
             "remote_file_id, unique_file_id, track_name, track_duration, track_performer," +
@@ -109,16 +127,17 @@ public final class PGQuery {
             "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
             "on conflict (group_id, post_id, track_name, track_duration) do nothing;";
 
+
     // :wheelchair:, needs to be replaced to a normal one indexation system.
-    static final String POSTGRE_SEARCH = "select " +
+    static final String POSTGRE_SEARCH = "WITH reference (query1, query2) as (values (?, ?)) select " +
             "internal_id, group_id, post_id, unique_file_id, remote_file_id, file_id, track_name, track_duration, track_performer, aggregator, " +
             "\"schema\", creation_timestamp, modification_timestamp, similarity " +
             "from post_data, " +
             "to_tsvector(post_data.track_name || post_data.track_performer) document, " +
-            "to_tsquery('%s') query, " +
-            "nullif(ts_rank(to_tsvector(post_data.track_name || post_data.track_performer), query), 0) rank_title, " +
+            "to_tsquery(reference.query1) query, " +
+            "NULLIF(ts_rank(to_tsvector(post_data.track_name || post_data.track_performer), query), 0) rank_title, " +
             "NULLIF(ts_rank(to_tsvector(post_data.track_name || post_data.track_performer), query), 0) rank_description, " +
-            "SIMILARITY('%s', post_data.track_name || post_data.track_performer) similarity " +
+            "SIMILARITY(reference.query2, post_data.track_name || post_data.track_performer) similarity " +
             "WHERE query @@ document OR similarity > 0 " +
             "ORDER BY rank_title, rank_description, similarity DESC NULLS LAST limit 10;";
 }

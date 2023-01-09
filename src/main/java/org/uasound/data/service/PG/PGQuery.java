@@ -129,15 +129,15 @@ public final class PGQuery {
 
 
     // :wheelchair:, needs to be replaced to a normal one indexation system.
-    static final String POSTGRE_SEARCH = "WITH reference (query1, query2) as (values (?, ?)) select " +
+    static final String POSTGRE_SEARCH = "WITH reference (input) as (values (?)) select " +
             "internal_id, group_id, post_id, unique_file_id, remote_file_id, file_id, track_name, track_duration, track_performer, aggregator, " +
             "\"schema\", creation_timestamp, modification_timestamp, similarity " +
             "from post_data, " +
             "to_tsvector(post_data.track_name || post_data.track_performer) document, " +
-            "to_tsquery(reference.query1) query, " +
+            "to_tsquery(reference.input) query, " +
             "NULLIF(ts_rank(to_tsvector(post_data.track_name || post_data.track_performer), query), 0) rank_title, " +
             "NULLIF(ts_rank(to_tsvector(post_data.track_name || post_data.track_performer), query), 0) rank_description, " +
-            "SIMILARITY(reference.query2, post_data.track_name || post_data.track_performer) similarity " +
+            "SIMILARITY(reference.input, post_data.track_name || post_data.track_performer) similarity " +
             "WHERE query @@ document OR similarity > 0 " +
             "ORDER BY rank_title, rank_description, similarity DESC NULLS LAST limit 10;";
 }

@@ -10,9 +10,11 @@ import org.uasound.bot.telegram.chat.export.selfbot.strategy.ExportStrategy;
 import org.uasound.data.entity.AlbumLinkage;
 import org.uasound.data.entity.DerivedAlbum;
 import org.uasound.data.entity.DerivedData;
+import org.uasound.data.entity.GroupCard;
 import org.uasound.data.service.DataService;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -78,7 +80,7 @@ public class SelfBotExportService implements ExportService {
     private final ExportStrategy<TdApi.Message> strategy = new SelfBotExportStrategy();
 
     static final ScheduledExecutorService _EXECUTOR = Executors.newSingleThreadScheduledExecutor();
-    static long _DATA_POINTER = 0;
+    static long _DATA_POINTER = 0, _PROCESSED = 0;
     static final Logger _LOGGER = LoggerFactory.getLogger(SelfBotExportService.class);
 
     static final Pattern TAG_PATTERN = Pattern.compile("#\\w+");
@@ -102,6 +104,7 @@ public class SelfBotExportService implements ExportService {
             if (registeredGroups.contains(message.chatId)){
                 final DerivedData data = this.strategy.wrap(message, DefaultExceptionHandler.INSTANCE);
                 dataService.saveData(data);
+
                 botInstance.getIntegrationService().integrate(data, (sharedAudio) -> {
                     _LOGGER.debug("Integrated new DerivedData (id={}) from update (groupId={}).",
                             data.getPostId(),
@@ -111,6 +114,18 @@ public class SelfBotExportService implements ExportService {
             }
         });
 
+        botInstance.schedule(() -> {
+            final DataService dataService = botInstance.getDataService();
+            final Collection<Long> groups = dataService.getGroupIdList();
+
+            for (Long id : groups){
+                final GroupCard card = dataService.getGroupCard(id);
+
+                this.export(card.getGroupTag(), 50);
+            }
+
+        }, 3, TimeUnit.HOURS);
+
         Runtime.getRuntime().addShutdownHook(new Thread(_EXECUTOR::shutdown));
     }
 
@@ -118,10 +133,10 @@ public class SelfBotExportService implements ExportService {
     public void scheduleExport(String groupTag, long time, TimeUnit unit) {
         _LOGGER.info("Scheduled new export from {}", groupTag);
 
-        _EXECUTOR.schedule(() -> this.export(groupTag), time, unit);
+        _EXECUTOR.schedule(() -> this.export(groupTag, 0), time, unit);
     }
 
-    public void export(final String groupTag) {
+    public void export(final String groupTag, int limit) {
         _EXECUTOR.submit(() ->
                 telegramClient.send(new TdApi.SearchChats(groupTag, 1), (rs) -> {
             final TdApi.Chats chats = rs.get();
@@ -129,7 +144,7 @@ public class SelfBotExportService implements ExportService {
 
             telegramClient.send(
                     new TdApi.GetChatHistory(groupId, _DATA_POINTER, 0, 1, false),
-                    (res) -> proceed(telegramClient, botInstance, groupTag, groupId, res)
+                    (res) -> proceed(telegramClient, botInstance, groupTag, groupId, limit, res)
             );
         }));
     }
@@ -138,6 +153,7 @@ public class SelfBotExportService implements ExportService {
                         final TelegramBot bot,
                         final String groupTag,
                         final long groupId,
+                        final int limit,
                         final Result<TdApi.Messages> res) {
         final TdApi.Messages messages = res.get();
 
@@ -167,6 +183,7 @@ public class SelfBotExportService implements ExportService {
                 _LOGGER.info("Message ({}:{}) accomplished.", groupId, message.id);
 
                 audioSequence.add(bot.getDataService().getData(derivedData.getGroupId(), derivedData.getPostId()));
+                _PROCESSED++;
             } else {
                 this.proceedAlbum(bot, message);
             }
@@ -178,9 +195,14 @@ public class SelfBotExportService implements ExportService {
             _LOGGER.error("Can't await cool-down.", e);
         }
 
+        if (_PROCESSED > limit) {
+            _LOGGER.info("Limit exceeded for {}", groupId);
+            return;
+        }
+
         client.send(
                 new TdApi.GetChatHistory(groupId, _DATA_POINTER, 0, 50, false),
-                (cRes) -> proceed(client, bot, groupTag, groupId, cRes)
+                (cRes) -> proceed(client, bot, groupTag, groupId, limit, cRes)
         );
     }
 

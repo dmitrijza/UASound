@@ -37,13 +37,11 @@ public class SelfBotExportStrategy implements ExportStrategy<TdApi.Message> {
 
         boolean isRepost = rawInput.forwardInfo != null;
 
-        if (isRepost){
+        if (isRepost)
             return null;
-        }
 
         if (!(rawInput.content instanceof TdApi.MessageAudio)) {
             _LOGGER.debug("{}: no audio.", rawInput.id);
-
             return null;
         }
 

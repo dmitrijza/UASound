@@ -10,6 +10,7 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 
+// Semi-implemented {@link DataService} for Hibernate
 public class HibernateDataService implements DataService {
     private CombinedRepository repository;
 
@@ -139,6 +140,16 @@ public class HibernateDataService implements DataService {
     @Override
     public Collection<DerivedData> search(String query) {
         return repository.search(query);
+    }
+
+    @Override
+    public Collection<DerivedAlbum> searchAlbum(String query) {
+        return null;
+    }
+
+    @Override
+    public Collection<DerivedAlbum> searchAlbumAuthor(String query) {
+        return null;
     }
 
     @Override

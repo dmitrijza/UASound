@@ -6,10 +6,7 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.uasound.data.JDBCSerializationSpecies;
-import org.uasound.data.entity.DerivedData;
-import org.uasound.data.entity.DerivedMeta;
-import org.uasound.data.entity.GroupCard;
-import org.uasound.data.entity.SharedAudio;
+import org.uasound.data.entity.*;
 import org.uasound.data.service.DataService;
 
 import java.math.BigDecimal;
@@ -31,51 +28,132 @@ public final class PGDataService implements DataService {
             dataUpsert, dataUpdate, dataContains, dataByInternal,
             sharedInsert, sharedSelect, sharedExists, sharedCacheable,sharedExists1,
             metaUpdate, metaUpsert, metaSelect, dataSelect,
-            groupCardSelect, groupCardIdsSelect, saveGroupCard, groupCardSelectTag;
+            groupCardSelect, groupCardIdsSelect, saveGroupCard, groupCardSelectTag,
+            albumGetId, albumSave, albumGet,
+            linkageSave, linkageGet;
 
-    private Statement search;
+    private Statement search, searchAlbum, searchAlbumAuthor;
 
     static final Logger LOGGER = LoggerFactory.getLogger(PGDataService.class);
+    private Connection connection;
 
     @Override
-    public void init(){
+    public void init() throws SQLException {
         final HikariConfig config = new HikariConfig("configuration/data.properties");
         this.dataSource = new HikariDataSource(config);
 
+        connection = this.dataSource.getConnection();
+        final Statement prepareStatement = connection.createStatement();
+
+        prepareStatement.executeUpdate(PGQuery.POSTGRE_DATA_TABLE);
+        prepareStatement.executeUpdate(PGQuery.POSTGRE_META_TABLE);
+        prepareStatement.executeUpdate(PGQuery.POSTGRE_SHARED_TABLE);
+        prepareStatement.executeUpdate(PGQuery.POSTGRE_CARD_TABLE);
+
+        this.search = connection.createStatement();
+        this.searchAlbum = connection.createStatement();
+        this.searchAlbumAuthor = connection.createStatement();
+
+        this.albumSave = connection.prepareStatement(PGQuery.SAVE_ALBUM);
+        this.albumGet = connection.prepareStatement(PGQuery.GET_ALBUM);
+        this.albumGetId = connection.prepareStatement(PGQuery.GET_ALBUM_ID);
+        this.linkageSave = connection.prepareStatement(PGQuery.SAVE_LINKAGE);
+        this.linkageGet = connection.prepareStatement(PGQuery.GET_LINKAGE);
+
+        this.groupCardSelect = connection.prepareStatement(PGQuery.POSTGRE_CARD_SELECT);
+        this.groupCardIdsSelect = connection.prepareStatement(PGQuery.POSTGRE_CARD_SELECT_ALL_IDS);
+        this.groupCardSelectTag = connection.prepareStatement(PGQuery.POSTGRE_CARD_SELECT_TAG);
+        this.saveGroupCard = connection.prepareStatement(PGQuery.POSTGRE_CARD_UPDATE);
+
+        this.dataUpsert = connection.prepareStatement(PGQuery.POSTGRE_MESSAGE_UPSERT, Statement.RETURN_GENERATED_KEYS);
+        this.dataContains = connection.prepareStatement(PGQuery.POSTGRE_DATA_CONTAINS);
+        this.dataSelect = connection.prepareStatement(PGQuery.POSTGRE_DATA_SELECT_EXACT);
+        this.dataUpdate = connection.prepareStatement(PGQuery.POSTGRE_DATA_UPDATE);
+        this.dataByInternal = connection.prepareStatement(PGQuery.POSTGRE_DATA_SELECT_INTERNAL);
+
+        this.sharedSelect = connection.prepareStatement(PGQuery.POSTGRE_SHARED_SELECT);
+        this.sharedExists = connection.prepareStatement(PGQuery.POSTGRE_SHARED_EXISTS);
+        this.sharedInsert = connection.prepareStatement(PGQuery.POSTGRE_SHARED_INSERT);
+        this.sharedCacheable = connection.prepareStatement(PGQuery.POSTGRE_SELECT_CACHEABLE_DATA);
+        this.sharedExists1 = connection.prepareStatement(PGQuery.POSTGRES_SELECT_AUDIO_EXISTS);
+
+        this.metaUpdate = connection.prepareStatement(PGQuery.POSTGRE_META_UPDATE);
+        this.metaUpsert = connection.prepareStatement(PGQuery.POSTGRE_META_UPSERT);
+        this.metaSelect = connection.prepareStatement(PGQuery.POSTGRE_META_SELECT, Statement.RETURN_GENERATED_KEYS);
+
+    }
+
+    @Override
+    public void saveAlbum(DerivedAlbum album) {
         try {
-            final Connection connection = this.dataSource.getConnection();
-            final Statement prepareStatement = connection.createStatement();
+            this.albumSave.setString(1, album.getAuthor());
+            this.albumSave.setString(2, album.getName());
+            this.albumSave.setLong(3, album.getYear());
+            this.albumSave.setArray(4, connection
+                    .createArrayOf("VARCHAR", album.getTags().toArray(new String[0])));
 
-            prepareStatement.executeUpdate(PGQuery.POSTGRE_DATA_TABLE);
-            prepareStatement.executeUpdate(PGQuery.POSTGRE_META_TABLE);
-            prepareStatement.executeUpdate(PGQuery.POSTGRE_SHARED_TABLE);
-            prepareStatement.executeUpdate(PGQuery.POSTGRE_CARD_TABLE);
-
-            this.search = connection.createStatement();
-
-            this.groupCardSelect = connection.prepareStatement(PGQuery.POSTGRE_CARD_SELECT);
-            this.groupCardIdsSelect = connection.prepareStatement(PGQuery.POSTGRE_CARD_SELECT_ALL_IDS);
-            this.groupCardSelectTag = connection.prepareStatement(PGQuery.POSTGRE_CARD_SELECT_TAG);
-            this.saveGroupCard = connection.prepareStatement(PGQuery.POSTGRE_CARD_UPDATE);
-
-            this.dataUpsert = connection.prepareStatement(PGQuery.POSTGRE_MESSAGE_UPSERT, Statement.RETURN_GENERATED_KEYS);
-            this.dataContains = connection.prepareStatement(PGQuery.POSTGRE_DATA_CONTAINS);
-            this.dataSelect = connection.prepareStatement(PGQuery.POSTGRE_DATA_SELECT_EXACT);
-            this.dataUpdate = connection.prepareStatement(PGQuery.POSTGRE_DATA_UPDATE);
-            this.dataByInternal = connection.prepareStatement(PGQuery.POSTGRE_DATA_SELECT_INTERNAL);
-
-            this.sharedSelect = connection.prepareStatement(PGQuery.POSTGRE_SHARED_SELECT);
-            this.sharedExists = connection.prepareStatement(PGQuery.POSTGRE_SHARED_EXISTS);
-            this.sharedInsert = connection.prepareStatement(PGQuery.POSTGRE_SHARED_INSERT);
-            this.sharedCacheable = connection.prepareStatement(PGQuery.POSTGRE_SELECT_CACHEABLE_DATA);
-            this.sharedExists1 = connection.prepareStatement(PGQuery.POSTGRES_SELECT_AUDIO_EXISTS);
-
-            this.metaUpdate = connection.prepareStatement(PGQuery.POSTGRE_META_UPDATE);
-            this.metaUpsert = connection.prepareStatement(PGQuery.POSTGRE_META_UPSERT);
-            this.metaSelect = connection.prepareStatement(PGQuery.POSTGRE_META_SELECT, Statement.RETURN_GENERATED_KEYS);
-        } catch (SQLException e) {
+            this.albumSave.executeUpdate();
+        } catch (Exception e){
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void saveLinkage(AlbumLinkage linkage) {
+        try {
+            this.linkageSave.setLong(1, linkage.getAlbumId());
+            this.linkageSave.setLong(2, linkage.getGroupId());
+            this.linkageSave.setLong(3, linkage.getPostId());
+            this.linkageSave.setLong(4, linkage.getDataId());
+
+            this.linkageSave.executeUpdate();
+        } catch (Exception e){
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public DerivedAlbum getAlbum(long internalId) {
+        DerivedAlbum album = null;
+
+        try {
+            this.albumGetId.setLong(1, internalId);
+
+            final ResultSet set = this.albumGetId.executeQuery();
+
+            while (set.next()){
+                album = JDBCSerializationSpecies.deserializeAlbum(this, set).orElse(null);
+            }
+
+            return album;
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    @Override
+    public DerivedAlbum getAlbum(String author, String name, int year) {
+        DerivedAlbum.DerivedAlbumBuilder builder = DerivedAlbum.builder();
+
+        try {
+            albumGet.setString(1, author);
+            albumGet.setString(2, name);
+            albumGet.setLong(3, year);
+            final ResultSet set = albumGet.executeQuery();
+
+            while (set.next()){
+                builder.internalId(set.getLong("internal_id"));
+                builder.name(set.getString("album_name"));
+                builder.author(set.getString("author"));
+                builder.year(set.getLong("year"));
+            }
+        } catch (Exception e){
+            throw new RuntimeException(e);
+        }
+
+        return builder.build();
     }
 
     @Override
@@ -294,6 +372,30 @@ public final class PGDataService implements DataService {
     }
 
     @Override
+    public AlbumLinkage getLinkageOf(long internalId) {
+        AlbumLinkage.AlbumLinkageBuilder builder = AlbumLinkage.builder();
+
+        try {
+            this.linkageGet.setLong(1, internalId);
+
+            final ResultSet set = this.linkageGet.executeQuery();
+
+            while (set.next()){
+                builder.dataId(set.getLong("data_id"));
+                builder.albumId(set.getLong("album_id"));
+                builder.groupId(set.getLong("group_id"));
+                builder.postId(set.getLong("post_id"));
+            }
+
+            return builder.build();
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    @Override
     public void updateData(final DerivedData data){
         try {
             this.dataUpdate.setString(1, data.getFileUniqueId());
@@ -394,7 +496,44 @@ public final class PGDataService implements DataService {
     }
 
     @Override
-    public void close() throws Exception {
+    public Collection<DerivedAlbum> searchAlbum(String query) {
+        Collection<DerivedAlbum> albums = new ArrayList<>();
 
+        try {
+            final ResultSet set = this.searchAlbum.executeQuery(String.format(PGQuery.POSTGRE_SEARCH_ALBUM, query));
+
+            while (set.next()){
+                albums.add(JDBCSerializationSpecies.deserializeAlbum(this, set).orElse(null));
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return albums;
+    }
+
+    @Override
+    public Collection<DerivedAlbum> searchAlbumAuthor(String query) {
+        Collection<DerivedAlbum> albumsByAuthor = new ArrayList<>();
+
+        try {
+            final ResultSet set = this.searchAlbumAuthor
+                    .executeQuery(String.format(PGQuery.POSTGRE_SEARCH_ALBUM_AUTHOR, query));
+
+            while (set.next()){
+                albumsByAuthor.add(JDBCSerializationSpecies.deserializeAlbum(this, set).orElse(null));
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return albumsByAuthor;
+    }
+
+    @Override
+    public void close() throws Exception {
+        this.connection.close();
     }
 }

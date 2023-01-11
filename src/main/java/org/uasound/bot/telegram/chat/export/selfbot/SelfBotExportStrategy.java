@@ -3,9 +3,9 @@ package org.uasound.bot.telegram.chat.export.selfbot;
 import it.tdlight.jni.TdApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.uasound.bot.telegram.chat.export.selfbot.strategy.ExportStrategy;
 import org.uasound.data.entity.DerivedData;
 import org.uasound.data.entity.DerivedMeta;
-import org.uasound.bot.telegram.chat.export.selfbot.strategy.ExportStrategy;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -43,6 +43,7 @@ public class SelfBotExportStrategy implements ExportStrategy<TdApi.Message> {
 
         if (!(rawInput.content instanceof TdApi.MessageAudio)) {
             _LOGGER.debug("{}: no audio.", rawInput.id);
+
             return null;
         }
 

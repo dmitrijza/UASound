@@ -114,6 +114,22 @@ public final class PGQuery {
     static final String POSTGRE_CARD_SELECT_TAG = "" +
             "select * from group_cards where group_tag = ?;";
 
+    static final String SAVE_ALBUM = "" +
+            "insert into album(author, album_name, year, tags) values (?, ?, ?, ?) on conflict (author, album_name, year) do nothing;";
+
+    static final String GET_ALBUM = "" +
+            "select * from album where author = ? and album_name = ? and year = ?;";
+
+    static final String SAVE_LINKAGE = "" +
+            "insert into album_links (album_id, group_id, post_id, data_id) values (" +
+            "?, ?, ?, ?) on conflict (album_id, data_id) do nothing;";
+
+    static final String GET_LINKAGE = "" +
+            "select * from album_links where data_id = ?";
+
+    static final String GET_ALBUM_ID = "" +
+            "select * from album where internal_id = ?";
+
     static final String POSTGRE_SELECT_CACHEABLE_DATA = "" +
             "select t1.internal_id from post_data t1 left join shared_audio t2 on " +
             "t2.internal_id = t1.internal_id where t2.internal_id is null limit 5;";
@@ -139,4 +155,26 @@ public final class PGQuery {
             "            SIMILARITY(input_query, post_data.track_name || post_data.track_performer) similarity\n" +
             "            WHERE query @@ document OR similarity > 0  \n" +
             "            ORDER BY rank_title, rank_description, similarity DESC NULLS LAST limit 10;";
+
+    static final String POSTGRE_SEARCH_ALBUM_AUTHOR = "" +
+            "with reference(input_query) as (values('%s')) \n" +
+            "            select * from album, reference, \n" +
+            "                        to_tsvector(album.author) document,   \n" +
+            "                        to_tsquery(input_query) query, \n" +
+            "                        nullif(ts_rank(to_tsvector(album.author), query), 0) rank_title,   \n" +
+            "                        NULLIF(ts_rank(to_tsvector(album.author), query), 0) rank_description,   \n" +
+            "                        SIMILARITY(input_query, album.author) similarity \n" +
+            "                        WHERE query @@ document OR similarity > 0   \n" +
+            "                        ORDER BY rank_title, rank_description, similarity DESC NULLS LAST limit 10;";
+
+    static final String POSTGRE_SEARCH_ALBUM = "" +
+            "with reference(input_query) as (values('%s')) \n" +
+            "            select * from album, reference,\n" +
+            "                        to_tsvector(album.author || album.album_name) document,\n" +
+            "                        to_tsquery(input_query) query, \n" +
+            "                        nullif(ts_rank(to_tsvector(album.author || album.album_name), query), 0) rank_title,\n" +
+            "                        NULLIF(ts_rank(to_tsvector(album.author || album.album_name), query), 0) rank_description,\n" +
+            "                        SIMILARITY(input_query, album.album_name || album.author) similarity\n" +
+            "                        WHERE query @@ document OR similarity > 0   \n" +
+            "                        ORDER BY rank_title, rank_description, similarity DESC NULLS LAST limit 10;";
 }

@@ -5,7 +5,9 @@ import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.extensions.bots.commandbot.TelegramLongPollingCommandBot;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.uasound.bot.telegram.chat.commands.inline.InlineProcessor;
 import org.uasound.bot.telegram.chat.commands.inline.SimpleInlineProcessor;
 import org.uasound.bot.telegram.chat.export.bot.ExportIntegrationService;
@@ -17,7 +19,9 @@ import org.uasound.bot.telegram.chat.export.selfbot.SelfBotSpecies;
 import org.uasound.data.service.DataService;
 import org.uasound.data.service.PG.PGDataService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -30,13 +34,14 @@ public class TelegramBot extends TelegramLongPollingCommandBot {
     private final ExportIntegrationService integrationService = new TelegramIntegrationService(this);
     private final InlineProcessor inlineProcessor = new SimpleInlineProcessor();
 
-    public static final ScheduledExecutorService EXECUTOR = Executors.newScheduledThreadPool(3);
-
     @Setter
     private Consumer<List<Update>> updatesHandler = null;
 
+    private final Map<Long, Consumer<Update>> contextActionHandlers = new HashMap<>();
+
     static SelfBotAdapter client;
 
+    public static final ScheduledExecutorService EXECUTOR = Executors.newScheduledThreadPool(3);
     public static final Logger _LOGGER = LoggerFactory.getLogger(TelegramBot.class);
 
     static {
@@ -48,9 +53,13 @@ public class TelegramBot extends TelegramLongPollingCommandBot {
     }
 
     public TelegramBot(){
-        this.dataService.init();
-        this.exportService.init();
-        this.integrationService.init();
+        try {
+            this.dataService.init();
+            this.exportService.init();
+            this.integrationService.init();
+        } catch (Throwable e){
+            _LOGGER.error("Can't initialize bot context", e);
+        }
     }
 
     @Override
@@ -76,12 +85,32 @@ public class TelegramBot extends TelegramLongPollingCommandBot {
 
     @Override
     public void processNonCommandUpdate(Update update) {
+        final Message message = update.getMessage();
+
+        if (!(update.hasInlineQuery()) && message != null){
+            final User user = message.getFrom();
+
+            if (user == null)
+                return;
+
+            if (contextActionHandlers.containsKey(user.getId())) {
+                final Consumer<Update> consumer = contextActionHandlers.get(user.getId());
+
+                contextActionHandlers.remove(user.getId());
+                consumer.accept(update);
+            }
+        }
+
         if (!(update.hasInlineQuery()))
             return;
 
         EXECUTOR.submit(() -> {
             this.inlineProcessor.process(this, update, update.getInlineQuery());
         });
+    }
+
+    public void await(final User user, final Consumer<Update> updateConsumer){
+        this.contextActionHandlers.put(user.getId(), updateConsumer);
     }
 
     public SelfBotAdapter getTelegramClient(){

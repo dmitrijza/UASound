@@ -7,13 +7,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.uasound.bot.telegram.TelegramBot;
 import org.uasound.bot.telegram.chat.export.selfbot.strategy.ExportStrategy;
+import org.uasound.data.entity.AlbumLinkage;
+import org.uasound.data.entity.DerivedAlbum;
 import org.uasound.data.entity.DerivedData;
 import org.uasound.data.service.DataService;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The synchronous export service that provides a way
@@ -22,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 
 @RequiredArgsConstructor
 public class SelfBotExportService implements ExportService {
-    static final Logger _LOGGER = LoggerFactory.getLogger(SelfBotExportService.class);
     enum MetaKeys {
 
         DURATION("duration"),
@@ -56,10 +60,10 @@ public class SelfBotExportService implements ExportService {
         DATE("date");
 
         private final String parent;
-
         MetaKeys(final String parent) {
             this.parent = parent;
         }
+
         public String getKey() {
             return parent;
         }
@@ -68,13 +72,18 @@ public class SelfBotExportService implements ExportService {
 
     static final int _TELEGRAM_THRESHOLD = 5;
 
-    static final ScheduledExecutorService _EXECUTOR = Executors.newSingleThreadScheduledExecutor();
-
     private final TelegramBot botInstance;
 
     private SelfBotAdapter telegramClient;
     private final ExportStrategy<TdApi.Message> strategy = new SelfBotExportStrategy();
+
+    static final ScheduledExecutorService _EXECUTOR = Executors.newSingleThreadScheduledExecutor();
     static long _DATA_POINTER = 0;
+    static final Logger _LOGGER = LoggerFactory.getLogger(SelfBotExportService.class);
+
+    static final Pattern TAG_PATTERN = Pattern.compile("#\\w+");
+
+    static final List<DerivedData> audioSequence = new ArrayList<>();
 
     @Override
     public void init() {
@@ -156,6 +165,10 @@ public class SelfBotExportService implements ExportService {
                 bot.getDataService().saveData(derivedData);
 
                 _LOGGER.info("Message ({}:{}) accomplished.", groupId, message.id);
+
+                audioSequence.add(bot.getDataService().getData(derivedData.getGroupId(), derivedData.getPostId()));
+            } else {
+                this.proceedAlbum(bot, message);
             }
         }
 
@@ -171,4 +184,81 @@ public class SelfBotExportService implements ExportService {
         );
     }
 
+    public void proceedAlbum(final TelegramBot bot, final TdApi.Message message){
+        TdApi.MessageContent content = message.content;
+
+        if (!(content instanceof TdApi.MessagePhoto)){
+            _LOGGER.info("Message (group={}) {}: no caption content.", message.chatId, message.id);
+            return;
+        }
+
+        final TdApi.MessagePhoto text = (TdApi.MessagePhoto) message.content;
+        final String[] textContent = text.caption.text.split("\n");
+
+        if (textContent.length < 3)
+            return;
+
+        final String label = textContent[0];
+
+        if (!((label.contains(" - ") || label.contains(" — ")) && text.caption.text.contains("#")))
+            return;
+
+        String delimiter = "-";
+        String[] labelSplit = label.split(delimiter);
+
+        if (labelSplit.length != 2)
+            delimiter = " — ";
+
+        labelSplit = label.split(delimiter);
+
+        if (labelSplit.length != 2)
+            return;
+
+        final String author = labelSplit[0],
+                album = labelSplit[1];
+
+        List<String> tagCompilation = new ArrayList<>();
+
+        final Matcher tagMatcher = TAG_PATTERN.matcher(text.caption.text);
+
+        while (tagMatcher.find()){
+            tagCompilation.add(tagMatcher.group());
+        }
+
+        int year = 0;
+
+        final Matcher matcher = Pattern.compile("\\(([^)]+)\\)").matcher(label);
+
+        while (matcher.find()){
+            final String yearS = matcher.group().replace("(", "").replace(")", "");
+
+            // The most convenient verification of integer.
+            if (!(yearS.startsWith("20") || yearS.startsWith("19")))
+                continue;
+
+            year = Integer.parseInt(yearS);
+        }
+
+        final DerivedAlbum albumObj = DerivedAlbum.builder()
+                .name(album)
+                .author(author)
+                .tags(tagCompilation)
+                .year(year)
+                .build();
+
+        bot.getDataService().saveAlbum(albumObj);
+
+        final DerivedAlbum newAlbum = bot.getDataService().getAlbum(author, album, year);
+
+        for (DerivedData data : audioSequence) {
+            bot.getDataService().saveLinkage(AlbumLinkage.builder()
+                    .albumId(newAlbum.getInternalId())
+                    .postId(message.id)
+                    .groupId(message.chatId)
+                    .dataId(data.getInternalId())
+                    .build());
+        }
+
+        audioSequence.clear();
+    }
 }

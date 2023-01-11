@@ -1,15 +1,20 @@
 package org.uasound.data.service;
 
-import org.uasound.data.entity.DerivedData;
-import org.uasound.data.entity.DerivedMeta;
-import org.uasound.data.entity.GroupCard;
-import org.uasound.data.entity.SharedAudio;
+import org.uasound.data.entity.*;
 
 import java.util.Collection;
 import java.util.List;
 
 public interface DataService extends AutoCloseable {
-    void init();
+    void init() throws Throwable;
+
+    void saveAlbum(final DerivedAlbum album);
+
+    void saveLinkage(final AlbumLinkage linkage);
+
+    DerivedAlbum getAlbum(final long internalId);
+
+    DerivedAlbum getAlbum(final String author, final String name, final int year);
 
     void saveGroupCard(GroupCard card);
 
@@ -35,6 +40,8 @@ public interface DataService extends AutoCloseable {
 
     DerivedData getData(final long internalId);
 
+    AlbumLinkage getLinkageOf(final long internalId);
+
     void updateData(DerivedData data);
 
     void updateMeta(DerivedMeta meta);
@@ -46,5 +53,9 @@ public interface DataService extends AutoCloseable {
     boolean containsData(final long groupId, final long postId, final String trackName, final String trackDuration);
 
     Collection<DerivedData> search(String query);
+
+    Collection<DerivedAlbum> searchAlbum(String query);
+
+    Collection<DerivedAlbum> searchAlbumAuthor(String query);
 
 }

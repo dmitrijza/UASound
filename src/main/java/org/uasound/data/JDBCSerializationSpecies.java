@@ -2,10 +2,7 @@ package org.uasound.data;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.uasound.data.entity.DerivedData;
-import org.uasound.data.entity.DerivedMeta;
-import org.uasound.data.entity.GroupCard;
-import org.uasound.data.entity.SharedAudio;
+import org.uasound.data.entity.*;
 import org.uasound.data.service.DataService;
 
 import java.sql.PreparedStatement;
@@ -40,6 +37,21 @@ public final class JDBCSerializationSpecies {
         return Optional.of(builder.build());
     }
 
+    public static Optional<DerivedAlbum> deserializeAlbum(final DataService service, final ResultSet set){
+        final DerivedAlbum.DerivedAlbumBuilder builder = DerivedAlbum.builder();
+
+        try {
+            builder.name(set.getString("album_name"));
+            builder.internalId(set.getLong("internal_id"));
+            builder.author(set.getString("author"));
+            builder.year(set.getLong("year"));
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+        return Optional.ofNullable(builder.build());
+    }
+
     public static Optional<SharedAudio> deserializeAudio(final DataService dataService, final ResultSet set){
         final SharedAudio.SharedAudioBuilder builder = SharedAudio.builder();
 
@@ -65,7 +77,7 @@ public final class JDBCSerializationSpecies {
     public static Optional<DerivedData> deserializeData(final DataService dataService, final ResultSet set){
         final DerivedData.DerivedDataBuilder builder = DerivedData.builder();
         try {
-            final long internalId = set.getLong("internal_id");
+                final long internalId = set.getLong("internal_id");
 
             builder.internalId(internalId);
             builder.groupId(set.getLong("group_id"));

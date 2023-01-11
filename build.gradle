@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-group 'org.uamusik'
+group 'org.uasound'
 version '1.0-SNAPSHOT'
 
 repositories {
@@ -17,7 +17,7 @@ jar {
     compileTestJava.options.encoding = "UTF-8"
 
     manifest {
-        attributes 'Main-Class': 'org.uamusik.Starter'
+        attributes 'Main-Class': 'org.uasound.Starter'
     }
 
     from {
@@ -33,6 +33,7 @@ repositories {
 }
 
 dependencies {
+    implementation 'org.reflections:reflections:0.10.2'
     compileOnly 'org.projectlombok:lombok:1.18.24'
     annotationProcessor 'org.projectlombok:lombok:1.18.24'
 
@@ -52,6 +53,10 @@ dependencies {
 
     // https://mvnrepository.com/artifact/org.postgresql/postgresql
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.5.1'
+
+    implementation group: 'io.hypersistence', name: 'hypersistence-utils-hibernate-60', version: '3.0.1'
+
+    implementation group: 'org.hibernate.orm', name: 'hibernate-core', version: '6.1.6.Final'
 
     // https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-slf4j-impl
     testImplementation group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.19.0'

@@ -109,7 +109,8 @@ public final class PGQuery {
             "select * from group_cards where group_id = ?";
     static final String POSTGRE_CARD_SELECT_ALL_IDS = "" +
             "select group_id from group_cards;";
-    static final String POSTGRES_SELECT_AUDIO = "select * from shared_audio where internal_id = ?;";
+    static final String POSTGRES_SELECT_AUDIO_EXISTS = "select exists(select * from shared_audio where" +
+            "group_id = ? and post_id = ? and track_name = ? and track_duration = ?);";
     static final String POSTGRE_CARD_SELECT_TAG = "" +
             "select * from group_cards where group_tag = ?;";
 
@@ -129,15 +130,13 @@ public final class PGQuery {
 
 
     // :wheelchair:, needs to be replaced to a normal one indexation system.
-    static final String POSTGRE_SEARCH = "WITH reference (input) as (values (?)) select " +
-            "internal_id, group_id, post_id, unique_file_id, remote_file_id, file_id, track_name, track_duration, track_performer, aggregator, " +
-            "\"schema\", creation_timestamp, modification_timestamp, similarity " +
-            "from post_data, " +
-            "to_tsvector(post_data.track_name || post_data.track_performer) document, " +
-            "to_tsquery(reference.input) query, " +
-            "NULLIF(ts_rank(to_tsvector(post_data.track_name || post_data.track_performer), query), 0) rank_title, " +
-            "NULLIF(ts_rank(to_tsvector(post_data.track_name || post_data.track_performer), query), 0) rank_description, " +
-            "SIMILARITY(reference.input, post_data.track_name || post_data.track_performer) similarity " +
-            "WHERE query @@ document OR similarity > 0 " +
-            "ORDER BY rank_title, rank_description, similarity DESC NULLS LAST limit 10;";
+    static final String POSTGRE_SEARCH = "with reference(input_query) as (values('%s'))\n" +
+            "select * from post_data, reference,\n" +
+            "            to_tsvector(post_data.track_name || post_data.track_performer) document,  \n" +
+            "            to_tsquery(input_query) query,\n" +
+            "            nullif(ts_rank(to_tsvector(post_data.track_name || post_data.track_performer), query), 0) rank_title,  \n" +
+            "            NULLIF(ts_rank(to_tsvector(post_data.track_name || post_data.track_performer), query), 0) rank_description,  \n" +
+            "            SIMILARITY(input_query, post_data.track_name || post_data.track_performer) similarity\n" +
+            "            WHERE query @@ document OR similarity > 0  \n" +
+            "            ORDER BY rank_title, rank_description, similarity DESC NULLS LAST limit 10;";
 }

@@ -8,7 +8,7 @@ import org.uasound.data.entity.SharedAudio;
 import java.util.Collection;
 import java.util.List;
 
-public interface DataService {
+public interface DataService extends AutoCloseable {
     void init();
 
     void saveGroupCard(GroupCard card);
@@ -42,6 +42,8 @@ public interface DataService {
     void saveMeta(DerivedMeta meta);
 
     boolean containsData(long groupId, long postId);
+
+    boolean containsData(final long groupId, final long postId, final String trackName, final String trackDuration);
 
     Collection<DerivedData> search(String query);
 

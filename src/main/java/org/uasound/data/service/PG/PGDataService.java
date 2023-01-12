@@ -13,13 +13,13 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 /**
  * Implementation of DataService that stores data in PostgresSQL.
  * Hardcode at its best, needs to be replaced to canonical type of storage possession.
  */
+@Deprecated
 public final class PGDataService implements DataService {
     @Getter
     private HikariDataSource dataSource;
@@ -27,10 +27,10 @@ public final class PGDataService implements DataService {
     private PreparedStatement
             dataUpsert, dataUpdate, dataContains, dataByInternal,
             sharedInsert, sharedSelect, sharedExists, sharedCacheable,sharedExists1,
-            metaUpdate, metaUpsert, metaSelect, dataSelect,
+            metaUpdate, metaUpsert, metaSelect, dataSelect, dataFileId,
             groupCardSelect, groupCardIdsSelect, saveGroupCard, groupCardSelectTag,
             albumGetId, albumSave, albumGet,
-            linkageSave, linkageGet;
+            linkageSave, linkageGet, linkedFiles;
 
     private Statement search, searchAlbum, searchAlbumAuthor;
 
@@ -59,6 +59,7 @@ public final class PGDataService implements DataService {
         this.albumGetId = connection.prepareStatement(PGQuery.GET_ALBUM_ID);
         this.linkageSave = connection.prepareStatement(PGQuery.SAVE_LINKAGE);
         this.linkageGet = connection.prepareStatement(PGQuery.GET_LINKAGE);
+        this.linkedFiles = connection.prepareStatement(PGQuery.GET_LINKED_FILES);
 
         this.groupCardSelect = connection.prepareStatement(PGQuery.POSTGRE_CARD_SELECT);
         this.groupCardIdsSelect = connection.prepareStatement(PGQuery.POSTGRE_CARD_SELECT_ALL_IDS);
@@ -70,6 +71,7 @@ public final class PGDataService implements DataService {
         this.dataSelect = connection.prepareStatement(PGQuery.POSTGRE_DATA_SELECT_EXACT);
         this.dataUpdate = connection.prepareStatement(PGQuery.POSTGRE_DATA_UPDATE);
         this.dataByInternal = connection.prepareStatement(PGQuery.POSTGRE_DATA_SELECT_INTERNAL);
+        this.dataFileId = connection.prepareStatement(PGQuery.POSTGRE_DATA_SELECT_FILE);
 
         this.sharedSelect = connection.prepareStatement(PGQuery.POSTGRE_SHARED_SELECT);
         this.sharedExists = connection.prepareStatement(PGQuery.POSTGRE_SHARED_EXISTS);
@@ -372,6 +374,30 @@ public final class PGDataService implements DataService {
     }
 
     @Override
+    public DerivedData getData(String fileId) {
+        try {
+            this.dataFileId.setString(1, fileId);
+
+            final ResultSet set = dataFileId.executeQuery();
+
+            DerivedData data = null;
+
+            while (set.next()){
+                data = JDBCSerializationSpecies.deserializeData(this, set).orElse(null);
+            }
+
+            return data;
+        } catch (SQLException e) {
+            return null;
+        }
+    }
+
+    @Override
+    public DerivedData getDataUnique(String uniqueFileId) {
+        return null;
+    }
+
+    @Override
     public AlbumLinkage getLinkageOf(long internalId) {
         AlbumLinkage.AlbumLinkageBuilder builder = AlbumLinkage.builder();
 
@@ -393,6 +419,33 @@ public final class PGDataService implements DataService {
         }
 
         return null;
+    }
+
+    @Override
+    public Collection<AlbumLinkage> getLinkedFiles(long albumId) {
+        final Collection<AlbumLinkage> linkages = new ArrayList<>();
+
+        try {
+            this.linkedFiles.setLong(1, albumId);
+
+             AlbumLinkage.AlbumLinkageBuilder builder = AlbumLinkage.builder();
+             final ResultSet set = this.linkedFiles.executeQuery();
+
+             while (set.next()){
+                 builder.dataId(set.getLong("data_id"));
+                 builder.albumId(set.getLong("album_id"));
+                 builder.groupId(set.getLong("group_id"));
+                 builder.postId(set.getLong("post_id"));
+
+                 linkages.add(builder.build());
+             }
+
+             return linkages;
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+        return linkages;
     }
 
     @Override
@@ -482,7 +535,8 @@ public final class PGDataService implements DataService {
         final Collection<DerivedData> messages = new ArrayList<>();
 
         try {
-            final ResultSet set = search.executeQuery(String.format(PGQuery.POSTGRE_SEARCH, query));
+            final ResultSet set = search.executeQuery(
+                    String.format(PGQuery.POSTGRE_SEARCH, JDBCSerializationSpecies.escapeQuery(query)));
 
             while (set.next()){
                 messages.add(JDBCSerializationSpecies.deserializeData(this, set).orElse(null));
@@ -491,7 +545,7 @@ public final class PGDataService implements DataService {
             return messages;
         } catch (Exception e){
             LOGGER.error("Can't execute {}", query, e);
-            return Collections.emptyList();
+            return messages;
         }
     }
 
@@ -500,7 +554,8 @@ public final class PGDataService implements DataService {
         Collection<DerivedAlbum> albums = new ArrayList<>();
 
         try {
-            final ResultSet set = this.searchAlbum.executeQuery(String.format(PGQuery.POSTGRE_SEARCH_ALBUM, query));
+            final ResultSet set = this.searchAlbum.executeQuery(
+                    String.format(PGQuery.POSTGRE_SEARCH_ALBUM, JDBCSerializationSpecies.escapeQuery(query)));
 
             while (set.next()){
                 albums.add(JDBCSerializationSpecies.deserializeAlbum(this, set).orElse(null));
@@ -519,7 +574,8 @@ public final class PGDataService implements DataService {
 
         try {
             final ResultSet set = this.searchAlbumAuthor
-                    .executeQuery(String.format(PGQuery.POSTGRE_SEARCH_ALBUM_AUTHOR, query));
+                    .executeQuery(String.format(
+                            PGQuery.POSTGRE_SEARCH_ALBUM_AUTHOR, JDBCSerializationSpecies.escapeQuery(query)));
 
             while (set.next()){
                 albumsByAuthor.add(JDBCSerializationSpecies.deserializeAlbum(this, set).orElse(null));
@@ -530,10 +586,5 @@ public final class PGDataService implements DataService {
         }
 
         return albumsByAuthor;
-    }
-
-    @Override
-    public void close() throws Exception {
-        this.connection.close();
     }
 }

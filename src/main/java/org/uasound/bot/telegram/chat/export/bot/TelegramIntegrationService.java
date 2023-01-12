@@ -2,46 +2,53 @@ package org.uasound.bot.telegram.chat.export.bot;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.uasound.bot.telegram.TelegramBot;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.uasound.bot.telegram.chat.export.selfbot.SelfBotAdapter;
 import org.uasound.data.entity.DerivedData;
 import org.uasound.data.entity.SharedAudio;
 import org.uasound.data.service.DataService;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+@Service
 public class TelegramIntegrationService implements ExportIntegrationService {
-
-    private final TelegramBot bot;
 
     private final DataService dataService;
 
     private final BotIntegrationStrategy strategy;
 
-    public static final long BUCKET_CHAT_ID = -1001607879665L;
-
-    private final IntegrationUpdatesHandler updatesHandler;
+    private IntegrationUpdatesHandler updatesHandler;
 
     private final Map<DerivedData, SharedAudio> cache = new HashMap<>();
 
+    public static final long BUCKET_CHAT_ID = -1001607879665L;
+
     static final Logger _LOGGER = LoggerFactory.getLogger(TelegramIntegrationService.class);
 
-    public TelegramIntegrationService(final TelegramBot bot){
-        this.bot = bot;
-        this.dataService = bot.getDataService();
-        this.strategy = new BotIntegrationStrategy(this, bot.getTelegramClient());
+    static final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
-        this.updatesHandler = new DefaultIntegrationHandler(this, this.strategy);
+    @Autowired
+    public TelegramIntegrationService(final DataService dataService,
+                                      final SelfBotAdapter adapter){
+        this.dataService = dataService;
+
+        this.strategy = new BotIntegrationStrategy(this, adapter);
     }
 
-    @Override
+    @Override @Async
     public void init() {
         this.strategy.setBucketChat(BUCKET_CHAT_ID);
-        this.bot.setUpdatesHandler(updatesHandler);
 
-        this.bot.schedule(() -> {
+        executor.scheduleAtFixedRate(() -> {
             dataService.getCacheableData()
                     .forEach((id) -> {
                         final DerivedData data = this.dataService.getData(id);
@@ -52,7 +59,7 @@ public class TelegramIntegrationService implements ExportIntegrationService {
                                         "Integrated audio (id={}) as part of scheduled action", audio.getInternalId());
                             });
                     });
-        }, 10, TimeUnit.SECONDS);
+        }, 5, 5, TimeUnit.SECONDS);
     }
 
     @Override
@@ -81,7 +88,10 @@ public class TelegramIntegrationService implements ExportIntegrationService {
     }
 
     @Override
+    @Bean @Lazy
     public IntegrationUpdatesHandler getUpdatesHandler() {
+        this.updatesHandler = new DefaultIntegrationHandler(this, this.strategy);
+
         return updatesHandler;
     }
 

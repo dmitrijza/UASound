@@ -5,7 +5,7 @@ import org.uasound.data.entity.*;
 import java.util.Collection;
 import java.util.List;
 
-public interface DataService extends AutoCloseable {
+public interface DataService {
     void init() throws Throwable;
 
     void saveAlbum(final DerivedAlbum album);
@@ -40,7 +40,13 @@ public interface DataService extends AutoCloseable {
 
     DerivedData getData(final long internalId);
 
+    DerivedData getData(final String fileId);
+
+    DerivedData getDataUnique(final String uniqueFileId);
+
     AlbumLinkage getLinkageOf(final long internalId);
+
+    Collection<AlbumLinkage> getLinkedFiles(final long dataId);
 
     void updateData(DerivedData data);
 

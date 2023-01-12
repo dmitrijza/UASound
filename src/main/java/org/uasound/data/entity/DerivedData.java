@@ -35,7 +35,7 @@ public class DerivedData implements Serializable {
     @UpdateTimestamp
     private Timestamp modificationTimestamp;
 
-    @Transient
+    @OneToOne
     private DerivedMeta derivedMeta;
 
     @Id

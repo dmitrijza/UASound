@@ -1,5 +1,6 @@
 package org.uasound.data;
 
+import org.apache.commons.text.StringEscapeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.uasound.data.entity.*;
@@ -77,7 +78,7 @@ public final class JDBCSerializationSpecies {
     public static Optional<DerivedData> deserializeData(final DataService dataService, final ResultSet set){
         final DerivedData.DerivedDataBuilder builder = DerivedData.builder();
         try {
-                final long internalId = set.getLong("internal_id");
+            final long internalId = set.getLong("internal_id");
 
             builder.internalId(internalId);
             builder.groupId(set.getLong("group_id"));
@@ -143,5 +144,9 @@ public final class JDBCSerializationSpecies {
             _LOGGER.error("Can't serialize data", e);
             return statement;
         }
+    }
+
+    public static String escapeQuery(final String query) {
+        return query.replace(" ", "");
     }
 }

@@ -100,9 +100,12 @@ public final class PGQuery {
             "select exists (select * from post_data where group_id = ? and post_id = ?);";
     static final String POSTGRE_DATA_SELECT_EXACT = "" +
             "select * from post_data where group_id = ? and post_id = ?;";
+
+    static final String POSTGRE_DATA_SELECT_FILE = "" +
+            "select * from post_data where file_id = ?";
+
     static final String POSTGRE_META_SELECT = "" +
             "select * from post_meta where internal_id = ?;";
-
     static final String POSTGRE_CARD_UPDATE = "" +
             "update group_cards set administrator_id = ? where group_id = ?;";
     static final String POSTGRE_CARD_SELECT = "" +
@@ -123,6 +126,8 @@ public final class PGQuery {
     static final String SAVE_LINKAGE = "" +
             "insert into album_links (album_id, group_id, post_id, data_id) values (" +
             "?, ?, ?, ?) on conflict (album_id, data_id) do nothing;";
+    public static final String GET_LINKED_FILES = "" +
+            "select * from album_links where album_id = ?;";
 
     static final String GET_LINKAGE = "" +
             "select * from album_links where data_id = ?";
@@ -130,7 +135,7 @@ public final class PGQuery {
     static final String GET_ALBUM_ID = "" +
             "select * from album where internal_id = ?";
 
-    static final String POSTGRE_SELECT_CACHEABLE_DATA = "" +
+    public static final String POSTGRE_SELECT_CACHEABLE_DATA = "" +
             "select t1.internal_id from post_data t1 left join shared_audio t2 on " +
             "t2.internal_id = t1.internal_id where t2.internal_id is null limit 5;";
 
@@ -146,7 +151,7 @@ public final class PGQuery {
 
 
     // :wheelchair:, needs to be replaced to a normal one indexation system.
-    static final String POSTGRE_SEARCH = "with reference(input_query) as (values('%s'))\n" +
+    public static final String POSTGRE_SEARCH = "with reference(input_query) as (values('%s'))\n" +
             "select * from post_data, reference,\n" +
             "            to_tsvector(post_data.track_name || post_data.track_performer) document,  \n" +
             "            to_tsquery(input_query) query,\n" +
@@ -156,7 +161,7 @@ public final class PGQuery {
             "            WHERE query @@ document OR similarity > 0  \n" +
             "            ORDER BY rank_title, rank_description, similarity DESC NULLS LAST limit 10;";
 
-    static final String POSTGRE_SEARCH_ALBUM_AUTHOR = "" +
+    public static final String POSTGRE_SEARCH_ALBUM_AUTHOR = "" +
             "with reference(input_query) as (values('%s')) \n" +
             "            select * from album, reference, \n" +
             "                        to_tsvector(album.author) document,   \n" +
@@ -167,7 +172,7 @@ public final class PGQuery {
             "                        WHERE query @@ document OR similarity > 0   \n" +
             "                        ORDER BY rank_title, rank_description, similarity DESC NULLS LAST limit 10;";
 
-    static final String POSTGRE_SEARCH_ALBUM = "" +
+    public static final String POSTGRE_SEARCH_ALBUM = "" +
             "with reference(input_query) as (values('%s')) \n" +
             "            select * from album, reference,\n" +
             "                        to_tsvector(album.author || album.album_name) document,\n" +
